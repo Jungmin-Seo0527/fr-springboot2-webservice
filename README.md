@@ -8,64 +8,64 @@
 
 * 아래의 코드를 build.gradle에 작성 (기존에 있던 코드들은 지워버림)
 
-```build.gradle
-buildscript {
-    ext {
-        springBootVersion = '2.1.7.RELEASE'
+    ```build.gradle
+    buildscript {
+        ext {
+            springBootVersion = '2.1.7.RELEASE'
+        }
+        repositories {
+            mavenCentral()
+            jcenter()
+        }
+        dependencies {
+            classpath("org.springframework.boot:spring-boot-gradle-plugin:${springBootVersion}")
+        }
     }
+    
+    apply plugin: 'java'
+    apply plugin: 'eclipse'
+    apply plugin: 'org.springframework.boot'
+    apply plugin: 'io.spring.dependency-management'
+    
+    group 'com.jungmin'
+    version '1.0-SNAPSHOT'
+    sourceCompatibility = 1.8
+    
+    
     repositories {
         mavenCentral()
-        jcenter()
     }
+    
     dependencies {
-        classpath("org.springframework.boot:spring-boot-gradle-plugin:${springBootVersion}")
+        compile('org.springframework.boot:spring-boot-starter-web')
+        compile('org.projectlombok:lombok')
+        testCompile('org.springframework.boot:spring-boot-starter-test')
     }
-}
-
-apply plugin: 'java'
-apply plugin: 'eclipse'
-apply plugin: 'org.springframework.boot'
-apply plugin: 'io.spring.dependency-management'
-
-group 'com.jungmin'
-version '1.0-SNAPSHOT'
-sourceCompatibility = 1.8
-
-
-repositories {
-    mavenCentral()
-}
-
-dependencies {
-    compile('org.springframework.boot:spring-boot-starter-web')
-    compile('org.projectlombok:lombok')
-    testCompile('org.springframework.boot:spring-boot-starter-test')
-}
-
-```
-
-* [스프링 이니셜라이져](http://start.spring.io/) 를 이용하지 않고 직접 build.gradle에 코드를 추가해서 진행
-* `buildscript` : 프로젝트의 플러그인 의존성 관리를 위한 설정
-    * `ext` : 전역변수 설정
-    * `springBootVersion` 이름의 전역 변수 생성
-    * `2.1.7.RELEASE`값을 `springBootVersion`에 저장
-      <br><br>
-* `apply plugin:` : 플러그인 의존성들을 적용할 것인지 결정
-    * `io.spring.dependency-management` : 스프링 부트의 의존성들을 관리해 주는 플러그인
-      <br><br>
-* `repositories` : 각종 의존성(라이브러리)들을 어떤 원격 저장소에서 받을지를 결정
-    * 기본적으로는 mavenCentral
-    * 라이브러리 업로드 난이도 때문에 jcenter도 많이 사용
-    * jcenter에 라이브러리를 업로드하면 mavenCentral에도 자동적으로 업로드
-* `dependencies` : 프로젝트 개발에 필요한 의존성들을 선언
-    * `org.springframework.boot:spring-boot-starter-web`
-    * `org.springframework.boot:spring-boot-starter-test`
-    * 특정 버전을 명시하지 말아야 함 -> 아래의 코드에 명시한 버전을 따라가도록 하기 위함
+    
     ```
-      dependencies {
-        classpath("org.springframework.boot:spring-boot-gradle-plugin:${springBootVersion}")
-    }
-  ```
+
+    * [스프링 이니셜라이져](http://start.spring.io/) 를 이용하지 않고 직접 build.gradle에 코드를 추가해서 진행
+    * `buildscript` : 프로젝트의 플러그인 의존성 관리를 위한 설정
+        * `ext` : 전역변수 설정
+        * `springBootVersion` 이름의 전역 변수 생성
+        * `2.1.7.RELEASE`값을 `springBootVersion`에 저장
+          <br><br>
+    * `apply plugin:` : 플러그인 의존성들을 적용할 것인지 결정
+        * `io.spring.dependency-management` : 스프링 부트의 의존성들을 관리해 주는 플러그인
+          <br><br>
+    * `repositories` : 각종 의존성(라이브러리)들을 어떤 원격 저장소에서 받을지를 결정
+        * 기본적으로는 mavenCentral
+        * 라이브러리 업로드 난이도 때문에 jcenter도 많이 사용
+        * jcenter에 라이브러리를 업로드하면 mavenCentral에도 자동적으로 업로드
+    * `dependencies` : 프로젝트 개발에 필요한 의존성들을 선언
+        * `org.springframework.boot:spring-boot-starter-web`
+        * `org.springframework.boot:spring-boot-starter-test`
+        * 특정 버전을 명시하지 말아야 함 -> 아래의 코드에 명시한 버전을 따라가도록 하기 위함
+        ```
+          dependencies {
+            classpath("org.springframework.boot:spring-boot-gradle-plugin:${springBootVersion}")
+        }
+      ```
 
 ### 1.5 인텔리제이에서 깃과 깃허브 사용하기
 
