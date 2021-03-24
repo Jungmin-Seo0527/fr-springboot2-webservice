@@ -882,6 +882,231 @@ dependencies {
         * JPA기능까지 한번에 테스트할 때는 `@SpringBootTest`와 `TestRestTemplate`을 사용하면 된다.
         * `WebEnvironment.RANDOM_PORT로 랜덤 포트가 실행된다.
 
+
+* 수정/조회 기능 추가
+* PostApiController
+
+    ```java
+    package com.jungmin.book.springboot.web;
+    
+    @RequiredArgsConstructor
+    @RestController
+    public class PostsApiController {
+    
+        private final PostsService postsService;
+    
+        @PostMapping("/api/v1/posts")
+        public Long save(@RequestBody PostsSaveRequestDto requestDto) {
+            return postsService.save(requestDto);
+        }
+    
+        // 아래부터 추가된 코드
+    
+        @PutMapping("/api/v1/posts/{id}") 
+        public Long update(@PathVariable Long id, @RequestBody PostsUpdateRequestDto requestDto) {
+            return postsService.update(id, requestDto);
+        }
+    
+        @GetMapping("/api/v1/posts/{id}")
+        public PostsResponseDto findById(@PathVariable Long id) {
+            return postsService.findById(id);
+        }
+    }
+    ```
+    * `@PathVariable`
+        * [참고 블로그 - @RequestParam과 @PathVariable](https://elfinlas.github.io/2018/02/18/spring-parameter/)
+        * `@RequestParam("no")` : http://www.google.com/no=1/something/... 와 같은 url에서 no값인 1을 빼오는 어노테이션
+        * `@PathVariable` : 위의 코드에서 id값을 처리하기 위한 어노테이션(직관적으로 보아도 url에서 받은 id값을 Long 자료형의 id에 저장하는것으로 이해된다.)
+        * Controller Layer에 속하는 클래스에 update와 findById 메소드를 추가하였다. (이러면 당연히 Service Layer에 속하는 Service 클래스에도 추가가 되겠지...)
+        * **실수한것!!!!**
+            * POST : CREATE
+            * PUT : UPDATE
+            * GET : READ
+            * MAPPING앞에 단어 들이 붙는데 직관적으로 보면 새로운 데이터를 저장하는 save는 POST이고, 메소드 이름 그대로 update는 자연스럽게 put, 그리고 원하는 정보를 검색해서
+              읽어오는 기능의 findById 는 READ 기능을 하는 GET을 붙여주어야 한다.
+            * 정확한 메커니즘은 모르겠지만 기능에 맞지 않는 것을 붙여주는 경우 테스트코드에서 에러가 났다. 실제로 이전판의 책에서 오타로 인해 테스트 코드가 통과가 되지 않는 이슈가 있었다고 한다.
+              놀랍게도 나는 개정판을 사서 오타가 수정이 되었지만 내가 그냥 오타를 쳐서 테스트코드에서 막혔다. 원인을 찾아내는데 한참 걸렸는데 자연스럽게 POST, PUT, GET이 갖는 의미도 공부하게
+              되었다.
+
+
+* web/dto/PostsResponseDto (지금부터 패키지까지 작성하는 클래스는 새로 만드는 클래스, 없는 클래스는 이전의 클래스에서 코드 추가)
+
+    ```java
+    package com.jungmin.book.springboot.web.dto;
+    
+    import com.jungmin.book.springboot.domain.posts.Posts;
+    import lombok.Getter;
+    
+    @Getter
+    public class PostsResponseDto {
+    
+        private Long id;
+        private String title;
+        private String content;
+        private String author;
+    
+        public PostsResponseDto(Posts entity) {
+            this.id = entity.getId();
+            this.title = entity.getTitle();
+            this.content = entity.getContent();
+            this.author = entity.getAuthor();
+        }
+    }
+    
+    ```
+    * `PostsResponseDto`는 Entity의 필드 중 일부만 사용하므로, 생성자로 Entity를 받아 필드에 값을 넣는다.
+    * 굳이 모든 필드를 가진 생성자가 필요하진 않으므로 Dto는 Entity를 받아 처리한다.
+    * `PostsResponseDto`는 findById 기능을 위한 dto 이다. 말그대로 응답Dto인데 save와 update와는 다르게 검색을 해서 결론적으로 READ를 하는 findById이므로 요청을
+      했으면 응답하는 데이터, 즉 내가 검색한 결과를 다시 건네받아야 한다. 그래서 Controller에서 findById 메소드의 반환값이 `PostsResponseDto`, 즉 검색 결과의 Dto이다.
+    * 앞에서도 이미 언급했지만 복습할겸... 결과값을 절대 Entity 클래스로 만들면 안된다. view를 위한 객체이므로 잦은 수정이 일어날 확률이 높기 때문에 따로 클래스를 만들어 두어야 한다.
+
+
+* Posts
+
+    ```java
+    package com.jungmin.book.springboot.domain.posts;
+    
+    @Getter
+    @NoArgsConstructor
+    @Entity
+    public class Posts extends BaseTimeEntity {
+    
+        @Id
+        @GeneratedValue(strategy = GenerationType.IDENTITY)
+        private Long id;
+    
+        @Column(length = 500, nullable = false)
+        private String title;
+    
+        @Column(columnDefinition = "TEXT", nullable = false)
+        private String content;
+    
+        private String author;
+    
+        @Builder
+        public Posts(String title, String content, String author) {
+            this.title = title;
+            this.content = content;
+            this.author = author;
+        }
+    
+        // 아래부터 추가한 코드
+    
+        public void update(String title, String content) {
+            this.title = title;
+            this.content = content;
+        }
+    }
+    
+    ```
+    * 이전에 비즈니스 로직은 Domain에서 관리한다고 했다. Entity 클래스인 Posts 클래스는 domain 이며, update 의 실제 동작 메소드가 이곳에 정의되어 있다. (코드 자체는 간단하다.
+      새로운 title과 content로 기존의 내용들을 바꿔주기만 하고 있다. )
+
+
+* PostsService
+
+    ```java
+    package com.jungmin.book.springboot.service.posts;
+    
+    @RequiredArgsConstructor
+    @Service
+    public class PostsService {
+        private final PostsRepository postsRepository;
+    
+        @Transactional
+        public Long save(PostsSaveRequestDto requestDto) {
+            return postsRepository.save(requestDto.toEntity()).getId();
+        }
+    
+        // 아래부터 추가한 코드 (update, findById)
+        
+        @Transactional
+        public Long update(Long id, PostsUpdateRequestDto requestDto) {
+            Posts posts = postsRepository.findById(id)
+                    .orElseThrow(() -> new IllegalArgumentException("해당 게시글이 없습니다. id=" + id));
+    
+            posts.update(requestDto.getTitle(), requestDto.getContent());
+            return id;
+        }
+    
+        public PostsResponseDto findById(Long id) {
+            Posts entity = postsRepository.findById(id)
+                    .orElseThrow(() -> new IllegalArgumentException("해당 게시글이 없습니다. id=" + id));
+            return new PostsResponseDto(entity);
+        }
+    }
+    
+    ```
+    * Service Layer 에서는 **트랜잭션과 도메인 간의 순서만 보장**해준다.
+    * 즉 만약 트랜잭션 스크랩트라고 하면 Posts 에 있는 update 메소드가 이곳에 있을것 같다. (내생각...)
+    * 아래부터 책내용
+    * update 기능에 **쿼리를 날리는 기능이 없다.** 이유는 JPA의 **영속성 컨텍스트** 때문이다.
+    * 영속성 컨텍스트
+        * **엔티티를 영구 저장하는 환경**
+        * 일존의 논리적 개념으로 보면 되며, JPA의 핵심 내용은 **엔티티가 영속성 컨텍스트에 포함되어 있냐 아니냐**로 갈린다. (???)
+        * JPA의 엔티티 매니저가 활성화된 상태로 (Spring Data Jpa를 쓴다면 기본 옵션) **트랜잭션 안에서 데이터베이스에서 데이터를 가져오면** 이 데이터는 영속성 컨텍스트가 유지된 상태이다.
+        * 이 상태에서 해당 데이터의 값을 변경하면 **트랜잭션이 끝나는 시점에 해당 테이블에 변경분을 반영** 한다.
+        * 즉 Entity 객체의 값만 변경하면 별도로 **Update 쿼리를 날릴 필요가 없다.**
+        * 이 개념을 **더티 체킹**이라 한다.
+
+
+* PostsApiControllerTest
+
+```java
+package com.jungmin.book.springboot.web;
+
+@RunWith(SpringRunner.class)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+public class PostsApiControllerTest {
+
+    @LocalServerPort
+    private int port;
+
+    @Autowired
+    private TestRestTemplate restTemplate;
+
+    @Autowired
+    private PostsRepository postsRepository;
+
+    @After
+    public void tearDown() throws Exception {
+        postsRepository.deleteAll();
+    }
+
+    // 기존의 save 테스트 코드 메소드는 지웠음
+    // 아래부터 추가한 코드
+
+    @Test
+    public void Posts_수정된다() throws Exception {
+        // given
+
+        Long updateId = savedPosts.getId();
+        String expectedTitle = "title2";
+        String expectedContent = "content2";
+
+        PostsUpdateRequestDto requestDto = PostsUpdateRequestDto.builder()
+                .title(expectedTitle)
+                .content(expectedContent)
+                .build();
+
+        String url = "http://localhost:" + port + "/api/v1/posts/" + updateId;
+
+        HttpEntity<PostsUpdateRequestDto> requestEntity = new HttpEntity<>(requestDto);
+
+        // when
+        ResponseEntity<Long> responseEntity = restTemplate.exchange(url, HttpMethod.PUT, requestEntity, Long.class);
+
+        // then
+        assertThat(responseEntity.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(responseEntity.getBody()).isGreaterThan(0L);
+
+        List<Posts> all = postsRepository.findAll();
+        assertThat(all.get(0).getTitle()).isEqualTo(expectedTitle);
+        assertThat(all.get(0).getContent()).isEqualTo(expectedContent);
+    }
+}
+```
+
 ****
 
 # Note
