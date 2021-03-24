@@ -746,8 +746,44 @@ dependencies {
     }
     
     ```
+    * Controller와 Service에서 `@Autowired`가 없음
+    * `@Autowired`로 의존성을 주입받는 방법 보다는 생성자로 주입받는 방법을 권장
+    * 생성자는 롬복 어노테이션인 `@RequiredArgsConstructor`에서 해결
+    * **final이 선언된 모든 필드**를 인자값으로 하는 생성자를 롬복이 대신 생성
+    * 이로써 해당 클래스의 의존성 관계가 변경될 때마다 생성자 코드를 계속해서 수정하는 번거로움을 해결
 
-*
+* web/dto/PostsSaveRequestDto
+
+    ```java
+    package com.jungmin.book.springboot.web.dto;
+    
+    import com.jungmin.book.springboot.domain.posts.Posts;
+    import lombok.Getter;
+    
+    @Getter
+    public class PostsResponseDto {
+    
+        private Long id;
+        private String title;
+        private String content;
+        private String author;
+    
+        public PostsResponseDto(Posts entity) {
+            this.id = entity.getId();
+            this.title = entity.getTitle();
+            this.content = entity.getContent();
+            this.author = entity.getAuthor();
+        }
+    }
+    
+    ```
+    * `Entity`클래스와 유사한 형태임에도 `Dto`클래스를 추가함
+    * **절대로 Entity 클래스를 Request/Response 클래스로 사용해서는 안된다.**
+    * Entity 클래스는 DB와 맞다은 핵심 클래스 - Entity 클래스를 기준으로 테이블이 생성되고, 스키마가 변경됨
+    * 수많은 서비스 클래스나 비즈니스 로직들이 Entity 클래스를 기준으로 동작한다.
+    * **Entity 클래스가 변경되면 여러 클래스에 영향을 끼치지만, Request와 Response용 Dto는 View를 위한 클래스라 정말 자주 변경이 필요함** 따라서 View Layer와 DB
+      Layer의 역할 분리를 철저하게 하는것이 좋음
+    * **꼭 Entity 클래스와 Controller에서 쓸 Dto는 분리해서 사용해야 한다**
 
 ****
 
