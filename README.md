@@ -719,6 +719,12 @@ dependencies {
     
     ```
     * requestDto 객체를 받아서 저장을 하는 Controller
+    * `PostsService` 인스턴스를 주입받아서 `save` 메소드를 실행시킨다.
+    * `save`메소드에서는 `PostsSaveRequestDto`의 객체인 dto를 파라미터로 갖는다.
+    * `@RequestBody`는 HTTP 메세지의 Body 부분을 가르킨다.
+    * 정확히는 HTTP 요청 몸체를 자바 객체로 변환한다.
+    * `@ResponseBody`는 반대로 자바 객체를 HTTP 응답 몸체로 변환한다.
+    * `@ResponseEntity`는 사용자의 `HttpRequest`에 대한 응답 데이터를 포함하는 클래스 따라서 `HttpStatus`, `HttpHeaders`, `HttpBody` 를 포함한다.
 
 
 * service/PostsService
@@ -746,11 +752,20 @@ dependencies {
     }
     
     ```
+    * Web Layer의 `PostsApiController`의 save 메소드를 Service Layer의 `PostsService`가 정의하고 있는 클래스
+    * 직접 `PostsRepository`의 save 메소드를 사용한다.
+    * 책에서 나온대로 Controller와 Dao 중간영역의 역할은 하는 듯 하다. (`@Transactional`도 볼수 있다.)
+    * `@Transactionl`
+        * JPA
+        * `begin`, `commit`을 자동 수행해준다.
+        * 예외를 발생시키면, `rollback`처리를 자동 수행해준다.
+
     * Controller와 Service에서 `@Autowired`가 없음
     * `@Autowired`로 의존성을 주입받는 방법 보다는 생성자로 주입받는 방법을 권장
     * 생성자는 롬복 어노테이션인 `@RequiredArgsConstructor`에서 해결
     * **final이 선언된 모든 필드**를 인자값으로 하는 생성자를 롬복이 대신 생성
     * 이로써 해당 클래스의 의존성 관계가 변경될 때마다 생성자 코드를 계속해서 수정하는 번거로움을 해결
+
 
 * web/dto/PostsSaveRequestDto
 
@@ -758,23 +773,34 @@ dependencies {
     package com.jungmin.book.springboot.web.dto;
     
     import com.jungmin.book.springboot.domain.posts.Posts;
+    import lombok.Builder;
     import lombok.Getter;
+    import lombok.NoArgsConstructor;
     
     @Getter
-    public class PostsResponseDto {
-    
-        private Long id;
+    @NoArgsConstructor
+    public class PostsSaveRequestDto {
         private String title;
         private String content;
         private String author;
     
-        public PostsResponseDto(Posts entity) {
-            this.id = entity.getId();
-            this.title = entity.getTitle();
-            this.content = entity.getContent();
-            this.author = entity.getAuthor();
+        @Builder
+        public PostsSaveRequestDto(String title, String content, String author) {
+    
+            this.title = title;
+            this.content = content;
+            this.author = author;
+        }
+    
+        public Posts toEntity() {
+            return Posts.builder()
+                    .title(title)
+                    .content(content)
+                    .author(author)
+                    .build();
         }
     }
+    
     
     ```
     * `Entity`클래스와 유사한 형태임에도 `Dto`클래스를 추가함
@@ -783,54 +809,80 @@ dependencies {
     * 수많은 서비스 클래스나 비즈니스 로직들이 Entity 클래스를 기준으로 동작한다.
     * **Entity 클래스가 변경되면 여러 클래스에 영향을 끼치지만, Request와 Response용 Dto는 View를 위한 클래스라 정말 자주 변경이 필요함** 따라서 View Layer와 DB
       Layer의 역할 분리를 철저하게 하는것이 좋음
-    * **꼭 Entity 클래스와 Controller에서 쓸 Dto는 분리해서 사용해야 한다**
+    * **꼭 Entity 클래스와 Controller에서 쓸 Dto는 분리해서 사용해야 한다!!!**
+
+* web/PostsApiControllerTest (test 코드) // 이후부터는 import 부분은 빼겠다...
+
+    ```java
+    package com.jungmin.book.springboot.web;
+    
+    @RunWith(SpringRunner.class)
+    @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+    public class PostsApiControllerTest {
+    
+        @LocalServerPort
+        private int port;
+    
+        @Autowired
+        private TestRestTemplate restTemplate;
+    
+        @Autowired
+        private PostsRepository postsRepository;
+    
+        @After
+        public void tearDown() throws Exception {
+            postsRepository.deleteAll();
+        }
+    
+        @Test
+        public void Posts_등록된다() throws Exception {
+            // given
+            String title = "title";
+            String content = "content";
+            PostsSaveRequestDto requestDto = PostsSaveRequestDto.builder()
+                    .title(title)
+                    .content(content)
+                    .author("author")
+                    .build();
+    
+            String url = "http://localhost:" + port + "/api/v1/posts";
+    
+            // when
+            ResponseEntity<Long> responseEntity = restTemplate.postForEntity(url, requestDto, Long.class);
+    
+            // then
+            assertThat(responseEntity.getStatusCode()).isEqualTo(HttpStatus.OK);
+            assertThat(responseEntity.getBody()).isGreaterThan(0L);
+    
+            List<Posts> all = postsRepository.findAll();
+            assertThat(all.get(0).getTitle()).isEqualTo(title);
+            assertThat(all.get(0).getContent()).isEqualTo(content);
+        }
+    }
+    ```
+    * `@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)`
+        * 테스트에 사용할 ApplicationContext를 쉽게 생성하고 조작
+        * 전체 빈 중 특정 빈을 선택하여 생성
+        * 특정 빈을 Mock으로 대체 (Mock???)
+        * 테스트에 사용할 프로퍼티 파일을 선택하거나 특정 속성만 추가
+        * 특정 Configuration을 선택하여 설정
+        * 반드시 `@RunWith(SpringRunner.class)`와 함께 사용
+        * 라고 구글링 해보았지만 태반은 이해가지 않는 내용
+    * `@LocalServerPort`
+        * local server의 port 번호를 부여해주는 것 같은데... 실제 찍어보니 58504 가 있다.
+        * 바로 위의 어노테이션에서 설정을 RANDOM_PORT로 지정했고 `@LocalServerPort`에서 지정된 포트 번호를 받을 수 있는 어노테이션으로 이해했다.
+    * `TestRestTemplate`
+        * `RestTemplate`의 테스트용
+        * REST API 호출이후 응답을 받을 때까지 기다리는 동기방식이다.
+        * `restTemplate.postForEntity()` : POST 요청을 보내고 결과로 ResponseEntity 로 받는다.
+        * [참고 블로그](https://advenoh.tistory.com/46) - 학습 요망...
+        * 아래는 책의 내용
+        * HelloController의 테스트 코드와는 다르게 `@WebMvcTest`를 사용하지 않음
+        * **`@WebMvcTest`의 경우 JPA 기능이 작동하지 않는다.**
+        * JPA기능까지 한번에 테스트할 때는 `@SpringBootTest`와 `TestRestTemplate`을 사용하면 된다.
+        * `WebEnvironment.RANDOM_PORT로 랜덤 포트가 실행된다.
 
 ****
 
 # Note
 
-### `@RestController`
-
-### `@RequestBody`
-
-### `@Service`
-
-### `@LocalServerPosrt`
-
-### `TestRestTemplate`
-
-이름만 보면 `RestTemplate`의 테스트 버전으로 보면 될것 같다. 그러면 `RestTemplate`은 무엇인가...
-
-### `SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)`
-
-* 테스트에 사용할 ApplicationContext를 쉽게 생성하고 조작
-* 전체 빈 중 특정 빈을 선택하여 생성
-* 특정 빈을 Mock으로 대체
-* 테스트에 사용할 프로퍼티 파일을 선택하거나 특정 속성만 추가
-* 특정 Configuration을 선택하여 설정
-* 반드시 `@RunWith(SpringRunner.class)`와 함께 사용
-
-### `ResponseEntity<Long> responseEntity = restTemplate.postForEntity(url, requestDto, Long.class)`
-
-[참고 블로그](https://devlog-wjdrbs96.tistory.com/182)       
-Spring Framework에서 제공하는 클래스 주에 HttpEntity 라는 클래스가 존재한다. 이것은 HTTP 요청(Request) 또는 응답(Response)에 해당하는 HttpHeader와 HttpBody를
-포함하는 클래스이다.
-
-```java
-import java.net.http.HttpHeaders;
-
-public class HttpEntity<T> {
-    private final HttpHeaders headers;
-
-    @Nullable
-    private final T body;
-}
-```
-
-```
-public class RequestEntity<T> extends HttpEntity<T>
-public class ResponseEntity<T> extends HttpEntity<T>
-```
-
-`ResponseEntity`는 사용자의 `HttpRequest`에 대한 응답 데이터를 포함하는 클래스 따라서 `HttpStatus`, `HttpHeaders`, `HttpBody` 를 포함한다. 즉 HTTP 통신
-결과를 저장할 수 있는 객체라고 이해하면 될까?
