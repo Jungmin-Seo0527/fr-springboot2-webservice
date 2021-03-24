@@ -690,8 +690,64 @@ dependencies {
         * VO처럼 값 객체들도 이 영역에 해당하기 때문 (VO???)
     * **서비스 메소드는 트랜젝션과 도메인간의 순서만 보장**
     * **실제 비즈니스 로직은 도메인**
+
+**여기서 부터 책에는 코드 설명이 거의 없다**
+
+* web/PostsApiController
+
+    ```java
+    package com.jungmin.book.springboot.web;
     
-* 
+    import com.jungmin.book.springboot.service.posts.PostsService;
+    import com.jungmin.book.springboot.web.dto.PostsResponseDto;
+    import com.jungmin.book.springboot.web.dto.PostsSaveRequestDto;
+    import com.jungmin.book.springboot.web.dto.PostsUpdateRequestDto;
+    import lombok.RequiredArgsConstructor;
+    import org.springframework.web.bind.annotation.*;
+    
+    @RequiredArgsConstructor
+    @RestController
+    public class PostsApiController {
+    
+        private final PostsService postsService;
+    
+        @PostMapping("/api/v1/posts")
+        public Long save(@RequestBody PostsSaveRequestDto requestDto) {
+            return postsService.save(requestDto);
+        }
+    }
+    
+    ```
+    * requestDto 객체를 받아서 저장을 하는 Controller
+
+
+* service/PostsService
+    ```java
+    package com.jungmin.book.springboot.service.posts;
+    
+    import com.jungmin.book.springboot.domain.posts.Posts;
+    import com.jungmin.book.springboot.domain.posts.PostsRepository;
+    import com.jungmin.book.springboot.web.dto.PostsResponseDto;
+    import com.jungmin.book.springboot.web.dto.PostsSaveRequestDto;
+    import com.jungmin.book.springboot.web.dto.PostsUpdateRequestDto;
+    import lombok.RequiredArgsConstructor;
+    import org.springframework.stereotype.Service;
+    import org.springframework.transaction.annotation.Transactional;
+    
+    @RequiredArgsConstructor
+    @Service
+    public class PostsService {
+        private final PostsRepository postsRepository;
+    
+        @Transactional
+        public Long save(PostsSaveRequestDto requestDto) {
+            return postsRepository.save(requestDto.toEntity()).getId();
+        }
+    }
+    
+    ```
+
+*
 
 ****
 
