@@ -811,6 +811,7 @@ dependencies {
       Layer의 역할 분리를 철저하게 하는것이 좋음
     * **꼭 Entity 클래스와 Controller에서 쓸 Dto는 분리해서 사용해야 한다!!!**
 
+
 * web/PostsApiControllerTest (test 코드) // 이후부터는 import 부분은 빼겠다...
 
     ```java
@@ -1052,62 +1053,87 @@ dependencies {
 
 * PostsApiControllerTest
 
-```java
-package com.jungmin.book.springboot.web;
-
-@RunWith(SpringRunner.class)
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-public class PostsApiControllerTest {
-
-    @LocalServerPort
-    private int port;
-
-    @Autowired
-    private TestRestTemplate restTemplate;
-
-    @Autowired
-    private PostsRepository postsRepository;
-
-    @After
-    public void tearDown() throws Exception {
-        postsRepository.deleteAll();
+    ```java
+    package com.jungmin.book.springboot.web;
+    
+    @RunWith(SpringRunner.class)
+    @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+    public class PostsApiControllerTest {
+    
+        @LocalServerPort
+        private int port;
+    
+        @Autowired
+        private TestRestTemplate restTemplate;
+    
+        @Autowired
+        private PostsRepository postsRepository;
+    
+        @After
+        public void tearDown() throws Exception {
+            postsRepository.deleteAll();
+        }
+    
+        // 기존의 save 테스트 코드 메소드는 지웠음
+        // 아래부터 추가한 코드
+    
+        @Test
+        public void Posts_수정된다() throws Exception {
+            // given
+    
+            Long updateId = savedPosts.getId();
+            String expectedTitle = "title2";
+            String expectedContent = "content2";
+    
+            PostsUpdateRequestDto requestDto = PostsUpdateRequestDto.builder()
+                    .title(expectedTitle)
+                    .content(expectedContent)
+                    .build();
+    
+            String url = "http://localhost:" + port + "/api/v1/posts/" + updateId;
+    
+            HttpEntity<PostsUpdateRequestDto> requestEntity = new HttpEntity<>(requestDto);
+    
+            // when
+            ResponseEntity<Long> responseEntity = restTemplate.exchange(url, HttpMethod.PUT, requestEntity, Long.class);
+    
+            // then
+            assertThat(responseEntity.getStatusCode()).isEqualTo(HttpStatus.OK);
+            assertThat(responseEntity.getBody()).isGreaterThan(0L);
+    
+            List<Posts> all = postsRepository.findAll();
+            assertThat(all.get(0).getTitle()).isEqualTo(expectedTitle);
+            assertThat(all.get(0).getContent()).isEqualTo(expectedContent);
+        }
     }
-
-    // 기존의 save 테스트 코드 메소드는 지웠음
-    // 아래부터 추가한 코드
-
-    @Test
-    public void Posts_수정된다() throws Exception {
-        // given
-
-        Long updateId = savedPosts.getId();
-        String expectedTitle = "title2";
-        String expectedContent = "content2";
-
-        PostsUpdateRequestDto requestDto = PostsUpdateRequestDto.builder()
-                .title(expectedTitle)
-                .content(expectedContent)
-                .build();
-
-        String url = "http://localhost:" + port + "/api/v1/posts/" + updateId;
-
-        HttpEntity<PostsUpdateRequestDto> requestEntity = new HttpEntity<>(requestDto);
-
-        // when
-        ResponseEntity<Long> responseEntity = restTemplate.exchange(url, HttpMethod.PUT, requestEntity, Long.class);
-
-        // then
-        assertThat(responseEntity.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(responseEntity.getBody()).isGreaterThan(0L);
-
-        List<Posts> all = postsRepository.findAll();
-        assertThat(all.get(0).getTitle()).isEqualTo(expectedTitle);
-        assertThat(all.get(0).getContent()).isEqualTo(expectedContent);
-    }
-}
-```
+    ```
+    * **RestTemplate**다시 정리
+        * Http 요청 후 Json, xml, String 과 같은 응답을 받을 수 있는 템플릿
+        * Blocking I/O 기반의 Synchronous API (비동기를 지원하는 AsyncRestTemplate 도 있음)
+        * ResponseEntity 와 Server to Server 통신하는데 자주 쓰임
+        * 또는 Header, Content-Type 등을 설정하여 외부 API 호출
+        * Http request를 지원하는 HttpClient를 사용함
+        * 기본적으로 connection pool을 사용하지 않기 때문에 매 요청마다 handshake를 수행한다. 이를 방지하기 위해 Custom RestTemplate을 빈으로 등록하여 사용 가능
+        * [참고 블로그](https://a1010100z.tistory.com/125)
+    * **`HttpEntity`**
+        * Http 프로토콜을 이용하는 통신의 header와 body관련 정보를 저장할 수 있도록 함
+        * 이를 상속받는 클래스로 `RequestEntity`와 `ResponseEntity`가 있다.
+        * 통신 메세지 관련 header와 body의 값들을 하나의 객체로 저장하는 것이 HttpEntity
+        * Request부분일 경우 HttpEntity를 상속받은 RequestEntity가, Response 부분일 경우 HttpEntity를 상속받은 ResponseEntity가 하게 된다.
+        * `@ResponseBidy`나 `ResponseEntity`를 return 하는거나 결과적으로는 같은 기능이지만 구현방법은 다르다.
+        * 예를 들어 header 값을 변경시켜야 할 경우엔 `@ResponseBody`의 경우 파라미터로 Response 객체를 방아서 이 객체에서 header를 변경시켜야 한다.
+        * `ResponseEntity`에서는 이 클래스 객체를 생성한 뒤 객체에서 header 값을 변경시키면 된다.
 
 ****
 
 # Note
 
+#### `ResponseEntity`
+
+* `@ResponseEntity`는 사용자의 `HttpRequest`에 대한 응답 데이터를 포함하는 클래스 따라서 `HttpStatus`, `HttpHeaders`, `HttpBody` 를 포함한다.
+
+#### `HttpEntity`
+
+#### `HttpEntity<PostsUpdateRequestDto> requestEntity = new HttpEntity<>(requestDto);`
+
+#### `   ResponseEntity<Long> responseEntity = restTemplate.exchange(url, HttpMethod.PUT, requestEntity, Long.class);`
