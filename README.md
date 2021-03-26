@@ -1080,6 +1080,11 @@ dependencies {
         @Test
         public void Posts_수정된다() throws Exception {
             // given
+            Posts savedPosts = postsRepository.save(Posts.builder()
+                .title("title")
+                .content("content")
+                .author("author")
+                .build());
     
             Long updateId = savedPosts.getId();
             String expectedTitle = "title2";
@@ -1124,9 +1129,139 @@ dependencies {
         * 예를 들어 header 값을 변경시켜야 할 경우엔 `@ResponseBody`의 경우 파라미터로 Response 객체를 방아서 이 객체에서 header를 변경시켜야 한다.
         * `ResponseEntity`에서는 이 클래스 객체를 생성한 뒤 객체에서 header 값을 변경시키면 된다.
 
+
+* 로컬 환경에서 데이터베이스로 H2 이용하기
+    * 웹 콘솔 옵션을 활성화
+    * `application properties`에 `spring.h2.console.enabled=true` 작성
+    * http://localhost:8080/h2-console 로 접속
+    * `JDBC URL` 변경 : `jdbc:h2:mem:testdb`
+    * `conect` 버튼 클릭
+
+<br>
+
+### 3.5 JPA Auditing으로 생성시간/수정시간 자동화하기
+
+#### LocalDate 사용
+
+* Java8이 나오기 전까지 사용되었던 Date와 Calendar 클래스의 문제점
+    1. 불변(변경이 불가능한) 객체가 아님
+        - 멀티스레드 환경에서 언제든 문제가 발생할 수 있다.
+    2. Calendar는 월(Month)값 설계가 잘못되었다.
+        - 10월을 나타내는 Calendar.OCTOBER의 수자 값은 9 이다.
+        - 당연히 10으로 생각했던 개발자들에게는 큰 혼라이 왔다.
+
+#### domain/BaseTimeEntity
+
+```java
+package com.jungmin.book.springboot.domain;
+
+@Getter
+@MappedSuperclass
+@EntityListeners(AuditingEntityListener.class)
+public class BaseTimeEntity {
+
+    @CreatedDate
+    private LocalDateTime createdDate;
+
+    @LastModifiedDate
+    private LocalDateTime modifiedDate;
+}
+
+```
+
+* `BaseTimeEntity`클래스는 모든 Entity의 상위 클래스가 되어 **Entity들의 createdDate, modifiedDate를 자동으로 관리하는 역할**이다.
+* `@MappedSuperclass`
+    * JPA Entity클래스들이 BaseTimeEntity을 상속할 경우 필드들(createdDate, modifiedDate)도 칼럼으로 인식하도록 한다.
+
+* `@EntityListeners(AuditingEntityListener.class)`
+    * BaseTimeEntity 클래스에 Auditing 기능을 포함시킨다.
+* `@CreatedDate`
+    * Entity가 생성되어 저장될 때 시간이 자동 저장된다.
+* `@LastModifiedDate`
+    * 조회한 Entity의 값을 변경할 때 시간이 자동 저장된다.
+
+#### Posts 클래스가 BaseTimeEntity를 상속받도록 변경
+
+```java
+public class Posts extends BaseTimeEntity {
+    ...
+}
+```
+
+#### JPA Auditing 어노테이션 활성화
+
+```java
+
+@EnableJpaAudintg
+@SpringBootApplicatoin
+public class Application {
+    public static void main(String[] args) {
+        SpringApplication.run(Application.class, args);
+    }
+}
+```
+
+#### JPA Auditing 테스트 코드 작성하기
+
+```java
+package com.jungmin.book.springboot.domain.posts;
+
+import org.junit.After;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.junit4.SpringRunner;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+@RunWith(SpringRunner.class)
+@SpringBootTest
+public class PostsRepositoryTest {
+
+    @Autowired
+    PostsRepository postsRepository;
+
+    @After
+    public void cleanup() {
+        postsRepository.deleteAll();
+    }
+
+    // 아래부터 추가된 코드
+
+    @Test
+    public void BaseTimeEntity_등록() {
+        // given
+        LocalDateTime now = LocalDateTime.of(2021, 3, 21, 0, 0, 0);
+        postsRepository.save(Posts.builder()
+                .title("title")
+                .content("content")
+                .author("author")
+                .build());
+
+        // when
+        List<Posts> postsList = postsRepository.findAll();
+
+        // then
+        Posts posts = postsList.get(0);
+
+        System.out.println(">>>>>>> createDate=" + posts.getCreatedDate() + ", modifiedDate=" + posts.getModifiedDate());
+        assertThat(posts.getCreatedDate()).isAfter(now);
+        assertThat(posts.getModifiedDate()).isAfter(now);
+    }
+}
+```
+
 ****
 
-# Note
+## 참고 블로그
+
+[RestTemplate으로 api호출하기](https://vmpo.tistory.com/27)
+
+## Note
 
 #### `ResponseEntity`
 
