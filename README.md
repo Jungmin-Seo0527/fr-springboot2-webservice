@@ -1255,6 +1255,147 @@ public class PostsRepositoryTest {
 }
 ```
 
+## 4장. 머스테치로 화면 구성하기
+
+이번 장에는 화면을 구성하는 방법을 학습한다. 그런데 자바스크립트나 HTML같은 내용이 많이 포함되어 있어서 이해가 가지 않는 부분이 상당하다.
+
+### 4.1 서버 템플릿 엔진과 머스테치 소개
+
+#### 템플릿 엔진
+
+* 지정된 템플릿 양식과 데이터가 합쳐져 HTML 문서를 출력하는 소프트웨어
+* 서버 템플릿 엔진 : JSP, Freemarker
+* 클라이언트 템플릿 엔진 : React, Vue
+
+* 자바스크립트에서 JSP나 Freemarker처럼 자바 코드를 사용할 순 없는가?
+
+    ```html
+    
+    <script type="text/javascript">
+        
+        $(document).ready(function(){
+            if(a=="1"){
+                <%
+                    System.out.println("test");
+                %>
+            }
+        });
+    
+    
+    </script>
+    ```
+    * 이 코드는 **if문과 관계없이 무조건 test를 콘솔에 출력**한다.
+    * 이유는 프론트엔드의 자바스크립트가 작동하는 영역과 JSP가 작동하는 영역이 다르기 때문이다.
+    * JSP를 비롯한 서버 템플릿 엔진은 **서버에서 구동**된다.
+    * 서버 템플릿 엔진을 이용한 화면 생성은 **서버에서 Java코드로 문자열**을 만든 뒤 이 문자열을 HTML로 변환하여 **브라우저로 전달**한다.
+    * 반면 자바스크립트는 **브라우저 위에서 작동**한다.(**서버가 아닌 브라우저!!**)
+    * SPA(Single Page Application) 인 React.js, Vue.js는 **브라우저에서 화면을 생성한다.** 즉 **서버에서 이미 코드가 벗아난 경우**이다.
+
+#### 머스테치란
+
+* 머스테치(http://mustache.github.io/) 는 **수많은 언어를 지원하는 가장 심플한 템플릿 엔진**
+* 머스테치 외의 자바 진영의 서버 템플릿 엔진 : JSP, Velocity, Freemarker, Thymeleaf
+* 머스테치의 장점
+    * 문법이 다른 템플릿 엔진보다 심플하다.
+    * 로직 코드를 사용할 수 없어 View의 역할과 서버의 역할이 명확하게 분리된다.
+    * Mustache.js와 Mustache.java 2가지가 다 있어, 하나의 문법으로 클라이언트/서버 템플릿을 모두 사용 가능하다.
+
+* 작가님 개인 생각으로는 **템플릿 엔진은 화명 역할에만 충실해야 한다**라고 생각한다.
+
+#### 머스테치 플러그인 설치
+
+플러그인에서 설치하면 된다.
+
+### 4.2 기본 페이지 만들기
+
+#### 머스테치 스타터 의존성 추가
+
+`build.gradle`에 의존성을 추가한다.
+
+```
+compile('org.springframework.boot:spring-boot-starter-mustache')
+
+```
+
+* 스프링 부트에서 공식 지원하는 템플릿 엔진
+* 머스테치의 파일 위치는 기본적으로 `src/main/resource/templates` 이다.
+
+##### index.mustache
+
+```html
+<!DOCTYPE HTML>
+<html>
+<head>
+    <title>스프링 부트 웹서비스</title>
+    <meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/>
+</head>
+</html>
+
+```
+
+* `Controller`에서 URL 매핑을 진행
+
+#### IndexController
+
+```java
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.GetMapping;
+
+@Controller
+public class IndexController {
+
+    private final PostsService postsService;
+
+    @GetMapping("/")
+    public String index(Model model) {
+        model.addAttribute("posts", postsService.findAllDesc());
+        return "index";
+    }
+}
+
+```
+
+* 머스테치 스타터 덕분에 컨트롤러에서 문자열을 반환할 때 **앞의 경로와 뒤의 파일 확장자는 자동으로 지정**된다.
+* 즉 `return index`는 `src/main/resources/templates/index.mustace`로 전환되어 View Resolver가 처리하게 된다.
+
+#### IndexControllerTest
+
+* src/test/java/com/jungmin/book/springboot/web/IndexControllerTest
+
+```java
+package com.jungmin.book.springboot.web;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.test.context.junit4.SpringRunner;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.boot.test.context.SpringBootTest.WebEnvironment.RANDOM_PORT;
+
+@RunWith(SpringRunner.class)
+@SpringBootTest(webEnvironment = RANDOM_PORT)
+public class IndexControllerTest {
+
+    @Autowired
+    private TestRestTemplate restTemplate;
+
+    @Test
+    public void 메인페이지_로딩() {
+        // when
+        String body = this.restTemplate.getForObject("/", String.class);
+
+        // then
+        assertThat(body).contains("스프링 부트로 시작하는 웹 서비스");
+    }
+}
+```
+
+* `TestRestTemplate`을 통해 `/`로 호출했을 때 `index.mustache`에 포함된 코드들이 있는지 확인
+* `스프링부트로 시작하는 웹 서비스` 문자열이 존재하는지만 확인함
+
 ****
 
 ## 참고 블로그
