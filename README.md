@@ -1320,7 +1320,7 @@ compile('org.springframework.boot:spring-boot-starter-mustache')
 * 스프링 부트에서 공식 지원하는 템플릿 엔진
 * 머스테치의 파일 위치는 기본적으로 `src/main/resource/templates` 이다.
 
-##### index.mustache
+#### index.mustache
 
 ```html
 <!DOCTYPE HTML>
@@ -1396,7 +1396,412 @@ public class IndexControllerTest {
 * `TestRestTemplate`을 통해 `/`로 호출했을 때 `index.mustache`에 포함된 코드들이 있는지 확인
 * `스프링부트로 시작하는 웹 서비스` 문자열이 존재하는지만 확인함
 
-****
+### 4.3 게시글 등록 화면 만들기
+
+* 부트스트랩을 이용하셔 화면 만들기
+
+#### 레이아웃 화면 만들기
+
+* **공통 영역을 별도릐 파일로 분리하여 필요한 곳에서 가져다 쓰는 방식**
+* 이번에 추가할 라이브러리들인 부트스트랩과 제이쿼리는 **머스테치 화면 어디서나 필요**하기 때문에 레이아웃에 추가
+
+* `src/main/resources/templates/layout/header.mustache, footer.mustache`
+* header.mustache
+
+    ```html
+    <!DOCTYPE HTML>
+    <html>
+    <head>
+        <title>스프링부트 웹서비스</title>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    
+        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+    </head>
+    <body>
+    ```
+
+* footer.mustache
+    ```html
+    <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
+    
+    </body>
+    </html>
+    ```
+* **페이지 로딩속도를 높이기 위해** css는 `header`, js는 `footer`에 두었다.
+* HTML 은 위에서부터 코드가 실행되기 때문에 **`header`가 다 실행되고서야 `body`가 실행된다.**
+* js의 용량이 크면 클수록 body부분의 실행이 늦어지기 때문ㅇ네 js는 body 하단에 두어 화면이 다 그려진 뒤에 호출하는것이 좋다.
+* css는 화면을 그리는 역할이므로 head에서 불러오는 것이 좋다.
+    * 그렇지 앟으면 css가 적용되지 않은 깨진 화면을 사용자가 볼 수 있기 때문
+
+* 추가로, bootstrap.js의 경우 **제이쿼리가 꼭 있어야**만 하기 때문에 부트스트랩보다 먼저 호출되도록 코드를 작성
+* 보통 앞선 상황을 bootstrap.js가 **제이쿼리에 의존**한다라고 한다.
+
+#### index.mustache 수정
+
+```html
+{{>layout/header}}
+
+<h1>스프링부트로 시작하는 웹 서비스 Ver.2</h1>
+<div class="col-md-12">
+    <div class="row">
+        <div class="col-md-6">
+            <a href="/posts/save" role="button" class="btn btn-primary">글 등록</a>
+        </div>
+    </div>
+</div>
+{{>layout/footer}}
+```
+
+* `<a>`태그를 이용해 글 등록 페이지로 이동하는 글 등록 버튼 생성
+* 이동할 페이지의 주소는 `/posts/save`
+
+#### IndexController 추가
+
+```java
+package com.jungmin.book.springboot.web;
+
+import com.jungmin.book.springboot.service.posts.PostsService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.GetMapping;
+
+@RequiredArgsConstructor
+@Controller
+public class IndexController {
+    ...
+
+    @GetMapping("/posts/save")
+    public String postsSave() {
+        return "posts-save";
+    }
+}
+
+```
+
+* `index.mustache`와 마찬가지로 `/posts/save`를 호출하면 `post-save.mustache`를 호출하는 메소드 추가
+
+#### posts-save.mustache
+
+* 파일 위치는 `index.mustache`와 같은 곳
+
+```html
+{{>layout/header}}
+
+<h1>게시글 등록</h1>
+
+<div class="col-md-12">
+    <div class="col-md-4">
+        <form>
+            <div class="form-group">
+                <label for="title">제목</label>
+                <input type="text" class="form-control" id="title" placeholder="제목을 입력하세요">
+            </div>
+            <div class="form-group">
+                <label for="author"> 작성자 </label>
+                <input type="text" class="form-control" id="author" placeholder="작성자를 입력하세요">
+            </div>
+            <div class="form-group">
+                <label for="content"> 내용 </label>
+                <textarea class="form-control" id="content" placeholder="내용을 입력하세요"></textarea>
+            </div>
+        </form>
+        <a href="/" role="button" class="btn btn-secondary">취소</a>
+        <button type="button" class="btn btn-primary" id="btn-save">등록</button>
+    </div>
+</div>
+
+{{>layout/footer}}
+```
+
+* 여기까지 왔을때의 `http://localhost:8080/posts/save`
+  ![](https://i.ibb.co/G3jtH8F/image.jpg)
+
+#### 등록 버튼 기능 추가
+
+* 이 파트에서는 `index.js`코드를 만든다.
+* 난 내가 자바스크립트에 대한 지식이 전무해서 이전처럼 책을 읽고 내가 정리해서 글을 쓰는것이 불가능하다.
+* `src/main/resources/static/js/app/index.js`
+
+#### index.js
+
+```
+var main = {
+    init : function () {
+        var _this = this;
+        $('#btn-save').on('click', function () {
+            _this.save();
+        });
+
+        $('#btn-update').on('click', function () {
+            _this.update();
+        });
+
+        $('#btn-delete').on('click', function () {
+            _this.delete();
+        });
+    },
+    save : function () {
+        var data = {
+            title: $('#title').val(),
+            author: $('#author').val(),
+            content: $('#content').val()
+        };
+
+        $.ajax({
+            type: 'POST',
+            url: '/api/v1/posts',
+            dataType: 'json',
+            contentType:'application/json; charset=utf-8',
+            data: JSON.stringify(data)
+        }).done(function() {
+            alert('글이 등록되었습니다.');
+            window.location.href = '/';
+        }).fail(function (error) {
+            alert(JSON.stringify(error));
+        });
+    },
+    update : function () {
+        var data = {
+            title: $('#title').val(),
+            content: $('#content').val()
+        };
+
+        var id = $('#id').val();
+
+        $.ajax({
+            type: 'PUT',
+            url: '/api/v1/posts/'+id,
+            dataType: 'json',
+            contentType:'application/json; charset=utf-8',
+            data: JSON.stringify(data)
+        }).done(function() {
+            alert('글이 수정되었습니다.');
+            window.location.href = '/';
+        }).fail(function (error) {
+            alert(JSON.stringify(error));
+        });
+    },
+    delete : function () {
+        var id = $('#id').val();
+
+        $.ajax({
+            type: 'DELETE',
+            url: '/api/v1/posts/'+id,
+            dataType: 'json',
+            contentType:'application/json; charset=utf-8'
+        }).done(function() {
+            alert('글이 삭제되었습니다.');
+            window.location.href = '/';
+        }).fail(function (error) {
+            alert(JSON.stringify(error));
+        });
+    }
+
+};
+
+main.init();
+```
+
+* 아마 이 코드에서는 글의 등록뿐만 아니라 수정, 삭제 기능까지 추가되어 있다.
+* `alert`의 문자열만 봐도 대충은 어떤 기능을 수행하는지는 알수 있다.
+
+#### footer.mustache 추가
+
+`index.js`를 머스테치 파일이 쓸 수 있게 추가
+
+```html
+
+<script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
+
+<!--index.js 추가-->
+<script src="/js/app/index.js"></script>
+</body>
+</html>
+```
+
+* `index.js` 호출 코드를 보면 절대 경로(/)로 바로 시작한다.
+* 스프링 부트는 기본적으로 `src/main/resources/staic`에 위치한 자바스크립트, CSS, 이미지 등 정적 파일들은 URL 에서 `/`로 설정 된다.
+    * `src/main/resources/static/js/...`
+    * `src/main/resources/static/css/...`
+    * `src/main/resources/static/image/...`
+
+### 4.4 전체 조회 화면 만들기
+
+#### index.mustache의 UI를 변경
+
+```html
+{{>layout/header}}
+
+<h1>스프링부트로 시작하는 웹 서비스 Ver.2</h1>
+<div class="col-md-12">
+    <div class="row">
+        <div class="col-md-6">
+            <a href="/posts/save" role="button" class="btn btn-primary">글 등록</a>
+            {{#userName}}
+            Logged in as: <span id="user">{{userName}}</span>
+            <a href="/logout" class="btn btn-info active" role="button">Logout</a>
+            {{/userName}}
+            {{^userName}}
+            <a href="/oauth2/authorization/google" class="btn btn-success active" role="button">Google Login</a>
+            <a href="/oauth2/authorization/naver" class="btn btn-secondary active" role="button">Naver Login</a>
+            {{/userName}}
+        </div>
+    </div>
+    <br>
+    <!-- 목록 출력 영역 -->
+    <table class="table table-horizontal table-bordered">
+        <thead class="thead-strong">
+        <tr>
+            <th>게시글번호</th>
+            <th>제목</th>
+            <th>작성자</th>
+            <th>최종수정일</th>
+        </tr>
+        </thead>
+        <tbody id="tbody">
+        {{#posts}}
+        <tr>
+            <td>{{id}}</td>
+            <td><a href="/posts/update/{{id}}">{{title}}</a></td>
+            <td>{{author}}</td>
+            <td>{{modifiedDate}}</td>
+        </tr>
+        {{/posts}}
+        </tbody>
+    </table>
+</div>
+
+{{>layout/footer}}
+```
+
+* 머스테치 문법
+* `{{#posts}}`
+    * posts 라는 List를 순회한다.
+    * Java의 for문과 동일하게 생각하면 된다.
+
+* `{{id}} 등의 {{변수명}}`
+    * List에서 봅아낸 객체의 필드를 사용한다.
+
+#### `PostsRepository`인터페이스에 쿼리 추가
+
+```java
+package com.jungmin.book.springboot.domain.posts;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+
+import java.util.List;
+
+public interface PostsRepository extends JpaRepository<Posts, Long> {
+
+    @Query("SELECT p FROM Posts p ORDER BY p.id DESC")
+    List<Posts> findAllDesc();
+}
+
+```
+
+* SpringDataJpa에서 제공하지 않는 메소드는 위처럼 쿼리로 작성 가능 `@Query`
+* 시실 SpringDataJpa에서 제공하는 기본 메소드만으로 해결 가능하지만 `@Query`가 가독성이 더 좋아서 선택해서 사용하면 된다.
+
+#### `PostsService` 코드 추가
+
+```java
+package com.jungmin.book.springboot.service.posts;
+
+@RequiredArgsConstructor
+@Service
+public class PostsService {
+    private final PostsRepository postsRepository;
+    ...
+
+    @Transactional(readOnly = true)
+    public List<PostsListResponseDto> findAllDesc() {
+        return postsRepository.findAllDesc().stream()
+                .map(PostsListResponseDto::new)
+                .collect(Collectors.toList());
+    }
+}
+
+```
+
+* `@Transactional(readOnly = true)`
+    * `readOnly = true` 옵션을 주어 트랜잭션 범위는 유지하되, 조회 기능만 남겨두어 조회 속도가 개선
+    * 등록, 수정, 삭제 기능이 전혀없는 서비스 메소드에서 사용하는것을 추천
+
+* `.map(PostsListResponseDto::new)`
+    * `.map(posts -> new PostsListResponseDto(posts))` 와 같은 의미
+    * 람다식
+
+* `postsRepository`결과로 넘어온 Posts 의 Stream을 map을 통해 `PostsListReponseDto` 변환 -> List 로 반환하는 메소드
+
+#### PostListResponseDto
+
+* `src/main/java/com/jungmin/book/springboot/web/dto/PostsListResponseDto`
+
+```java
+package com.jungmin.book.springboot.web.dto;
+
+import com.jungmin.book.springboot.domain.posts.Posts;
+import lombok.Getter;
+
+import java.time.LocalDateTime;
+
+@Getter
+public class PostsListResponseDto {
+    private Long id;
+    private String title;
+    private String author;
+    private LocalDateTime modifiedDate;
+
+    public PostsListResponseDto(Posts entity) {
+        this.id = entity.getId();
+        this.title = entity.getTitle();
+        this.author = entity.getAuthor();
+        this.modifiedDate = entity.getModifiedDate();
+    }
+}
+
+```
+
+#### Controller 변경
+
+```java
+package com.jungmin.book.springboot.web;
+
+import com.jungmin.book.springboot.service.posts.PostsService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.GetMapping;
+
+@RequiredArgsConstructor
+@Controller
+public class IndexController {
+
+    private final PostsService postsService;
+
+    @GetMapping("/")
+    public String index(Model model) {
+        model.addAttribute("posts", postsService.findAllDesc());
+        return "index";
+    }
+
+    @GetMapping("/posts/save")
+    public String postsSave() {
+        return "posts-save";
+    }
+}
+
+```
+
+* `Model`
+    * 서버 템플릿 엔진에서 사용할 수 있는 객체를 저장할 수 있다.
+    * 여기서는 `postsService.findAllDesc()`로 가져온 결과를 posts로 `index.mustache`에 전달한다.
+
+****    
 
 ## 참고 블로그
 
