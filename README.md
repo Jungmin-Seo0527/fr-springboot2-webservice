@@ -1,6 +1,23 @@
-# 스프링 부트와 AWS로 혼자 구현하는 웹 서비스
+# [스프링 부트와 AWS로 혼자 구현하는 웹 서비스](https://www.coupang.com/vp/products/345087406?src=1139000&spec=10799999&addtag=400&ctag=345087406&lptag=AF6470699&itime=20210407180430&wPcid=11065759343478129697335&wRef=jojoldu.tistory.com&wTime=20210407180430&redirect=landing&traceId=19113010202538500001005202&itemId=1095982510&gfrom=shorturl&pageType=PRODUCT&pageValue=345087406&landingImagePath=landing_images%2Fimg_landing_bg_20181010.jpg&isAddedCart=)
 
-## 목차
+## 프로젝트 소개
+
+제가 존경하는 개발자인 이동욱 개발자님의 저서인 `스프링 부트와 AWS로 혼자 구현하는 웹 서비스` 책을 공부한 내용과 관련 자료들을 구글링을 하여 정리.
+
+저의 첫 웹 서비스 프로젝트인 `플랫폼별 영화 정보 비교 서비스` 를 진행하고 느낀 제 개발 지식의 부족함을 느껴 시작한 프로젝트 입니다. (부족하다고 느꼈던 점은 프로젝트의 README.md에 작성 [링크](https://github.com/Jungmin-Seo0527/DB_project) )
+
+## 프로젝트 목표
+
+* 애플리케이션 개발에서부터 클라우드 서비스 환경까지 경험
+* Junit을 이용한 테스트 방법 학습
+* 코드 분석을 통한 객체 지향 프로그래밍 학습
+* 스프링 부트, JPA, 스프링 시큐리티를 활용한 애플리케이션 개발
+
+## 프로젝트 설명
+
+****
+
+## 아래부터는 학습 내용 정리
 
 ## 1장. 인텔리제이로 스프링 부트 시작하기
 
